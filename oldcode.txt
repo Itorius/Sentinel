@@ -1,0 +1,30 @@
+// Screen screen = Screen.Default;
+// Visual visual = screen.RgbaVisual;
+// Widget window = new Window(Gtk.WindowType.Popup);
+//
+// // if (screen.IsComposited && visual != null)
+// // {
+// // 	window.Visual = visual;
+// // 	window.AppPaintable = true;
+// // }
+//
+// ((Window)window).Move(-100, -100);
+// ((Window)window).Resize(10, 10);
+// // ((Window)window).Move(100, 100);
+// // ((Window)window).Resize(100, 100);
+
+//
+// window.Show();
+//
+// seat = window.Display.DefaultSeat;
+//
+// GrabStatus result = seat.Grab(window.Window, SeatCapabilities.Keyboard, false, null, null, null);
+// Console.WriteLine(result);
+
+// Task.Delay(5000).ContinueWith(_ =>
+// {
+// 	seat = MainWindow.Display.DefaultSeat;
+//
+// 	GrabStatus result = seat.Grab(MainWindow.Window, SeatCapabilities.Keyboard, true, null, null, null);
+// 	Console.WriteLine(result);
+// });
