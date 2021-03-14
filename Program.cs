@@ -1,4 +1,7 @@
-﻿using Gdk;
+﻿using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using Gdk;
 using Gtk;
 using Sentinel.ScreenCapture;
 using Key = Gdk.Key;
@@ -15,11 +18,31 @@ namespace Sentinel
 		{
 			Application.Init();
 
+			Overlay.Initialize();
+
 			HotkeyPrintscreen = new X11Hotkey(Key.Print);
 			HotkeyPrintscreen.Pressed += (_, _) =>
 			{
 				// AreaSelection selection = new();
 				WindowSelection selection = new();
+				selection.Callback += rectangle =>
+				{
+					Task.Run(() =>
+					{
+						Thread.Sleep(200);
+						
+						// var root = Display.Default.DefaultScreen.RootWindow;
+						// Pixbuf pixbuf = new Pixbuf(root, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+						// pixbuf.Save("test.png", "png");
+						
+						
+
+						// Atom atom = Atom.Intern("CLIPBOARD", false);
+						// Clipboard clipboard = Clipboard.Get(atom);
+						// clipboard.Image = pixbuf;
+						// clipboard.Store();
+					});
+				};
 			};
 			HotkeyPrintscreen.Register();
 

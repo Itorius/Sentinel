@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Gdk;
 
 namespace Sentinel
 {
@@ -40,6 +41,9 @@ namespace Sentinel
 		public static extern bool XTranslateCoordinates(IntPtr display, IntPtr sourceWindow, IntPtr destinationWindow, int srcX, int srcY, out int destX, out int destY, out X11Window child);
 
 		[DllImport("libgdk-3.so.0")]
-		public static extern int gdk_x11_window_get_xid(IntPtr window);
+		public static extern ulong gdk_x11_window_get_xid(IntPtr window);
+
+		[DllImport("libgdk-3.so.0")]
+		public static extern IntPtr gdk_x11_window_foreign_new_for_display(IntPtr display, X11.Window window);
 	}
 }
