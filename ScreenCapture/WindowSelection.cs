@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Gdk;
 using Gtk;
@@ -12,8 +11,9 @@ namespace Sentinel.ScreenCapture
 	{
 		private IntPtr X11Display;
 
-		public event Action<Rectangle> Callback;
-		private Window _window;
+		public event Action<Window, Rectangle> Callback;
+		private Window? _window;
+		private Rectangle? selectedRect;
 
 		public WindowSelection()
 		{
@@ -24,25 +24,16 @@ namespace Sentinel.ScreenCapture
 			{
 				Overlay.Hide();
 
-				Callback?.Invoke(rects[0]);
-
-				if (_window != null)
-				{
-					_window = _window.Toplevel;
-					var pixbuf = new Pixbuf(_window, 0, 0, _window.Width, _window.Height);
-					pixbuf.Save("test.png", "png");
-				}
+				if (_window != null) Callback?.Invoke(_window, selectedRect.Value);
 			}
 
 			Overlay.OnButtonPressed += OnOverlayOnOnButtonPressed;
 			Overlay.OnMouseMoved += args => GetWindowAtCursor();
 		}
 
-		private List<Rectangle> rects = new();
-
 		public void GetWindows(IntPtr display)
 		{
-			rects.Clear();
+			selectedRect = null;
 
 			var pointer = Display.Default.DefaultSeat.Pointer;
 
@@ -81,7 +72,7 @@ namespace Sentinel.ScreenCapture
 
 					_window = new Window(X11Wrapper.gdk_x11_window_foreign_new_for_display(Display.Default.Handle, ww));
 
-					rects.Add(new Rectangle(x, y, (int)cAttr.width, (int)cAttr.height));
+					selectedRect = new Rectangle(x, y, (int)cAttr.width, (int)cAttr.height);
 
 					break;
 				}
@@ -94,10 +85,7 @@ namespace Sentinel.ScreenCapture
 			{
 				GetWindows(X11Display);
 
-				if (rects.Count > 0)
-				{
-					Overlay.SetRectangle(rects[0]);
-				}
+				if (selectedRect != null) Overlay.SetRectangle(selectedRect.Value);
 			});
 
 			return null;

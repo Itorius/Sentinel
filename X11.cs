@@ -1,6 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
-using Gdk;
+using X11;
 
 namespace Sentinel
 {
@@ -13,6 +13,12 @@ namespace Sentinel
 			X11Wrapper.XFetchName(display, Handle, out string name);
 			return name;
 		}
+	}
+
+	public struct XModifierKeymap
+	{
+		public int max_keypermod; /* This server's max number of keys per modifier */
+		public unsafe KeyCode* modifiermap; /* An 8 by max_keypermod array of the modifiers */
 	}
 
 	public static class X11Wrapper
@@ -44,6 +50,12 @@ namespace Sentinel
 		public static extern ulong gdk_x11_window_get_xid(IntPtr window);
 
 		[DllImport("libgdk-3.so.0")]
-		public static extern IntPtr gdk_x11_window_foreign_new_for_display(IntPtr display, X11.Window window);
+		public static extern IntPtr gdk_x11_window_foreign_new_for_display(IntPtr display, Window window);
+
+		[DllImport(Library)]
+		public static extern unsafe XModifierKeymap* XInsertModifiermapEntry(XModifierKeymap* modmap, KeyCode keycode_entry, int modifier);
+		
+		[DllImport(Library)]
+		public static extern unsafe XModifierKeymap* XGetModifierMapping(IntPtr display);
 	}
 }

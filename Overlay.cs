@@ -15,6 +15,7 @@ namespace Sentinel
 		public static ulong XID => X11Wrapper.gdk_x11_window_get_xid(SelectionOverlay.Window.Handle);
 
 		public static event Action<ButtonPressEventArgs>? OnButtonPressed;
+		public static event Action<ButtonReleaseEventArgs>? OnButtonReleased;
 		public static event Action<MotionNotifyEventArgs>? OnMouseMoved;
 
 		public static void SetRectangle(Rectangle rectangle)
@@ -59,7 +60,8 @@ namespace Sentinel
 			SelectionOverlay.Name = "Overlay";
 
 			SelectionOverlay.ButtonPressEvent += (o, args) => { OnButtonPressed?.Invoke(args); };
-
+			SelectionOverlay.ButtonReleaseEvent += (o, args) => { OnButtonReleased?.Invoke(args); };
+			
 			SelectionOverlay.Drawn += (o, args) =>
 			{
 				if (rect == null) return;

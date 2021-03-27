@@ -21,6 +21,10 @@
 	  <Content Include="theme.css">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Content>
+	  <None Remove="main.css" />
+	  <Content Include="main.css">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
 	</ItemGroup>
 
 	<ItemGroup>
