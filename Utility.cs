@@ -8,7 +8,7 @@ namespace Sentinel
 		FindParent,
 		FindChildren
 	}
-	
+
 	public static class Utility
 	{
 		public static bool FindWindowClient(IntPtr xdo, Window window, SearchDirection direction, out Window client)

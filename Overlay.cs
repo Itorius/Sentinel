@@ -16,6 +16,7 @@ namespace Sentinel
 
 		public static event Action<ButtonPressEventArgs>? OnButtonPressed;
 		public static event Action<ButtonReleaseEventArgs>? OnButtonReleased;
+		public static event Action<KeyPressEventArgs>? OnKeyPressed;
 		public static event Action<MotionNotifyEventArgs>? OnMouseMoved;
 
 		public static void SetRectangle(Rectangle rectangle)
@@ -33,6 +34,11 @@ namespace Sentinel
 		{
 			SelectionOverlay.Hide();
 			rect = null;
+
+			OnButtonPressed = null;
+			OnButtonReleased = null;
+			OnKeyPressed = null;
+			OnMouseMoved = null;
 		}
 
 		internal static void Initialize()
@@ -51,17 +57,17 @@ namespace Sentinel
 				SelectionOverlay.AppPaintable = true;
 			}
 
-			SelectionOverlay.Events = EventMask.PointerMotionMask | EventMask.ButtonPressMask;
-			SelectionOverlay.MotionNotifyEvent += (o, args) =>
-			{
-				OnMouseMoved?.Invoke(args);
-			};
+			SelectionOverlay.Events = EventMask.PointerMotionMask | EventMask.ButtonPressMask | EventMask.KeyPressMask;
 			SelectionOverlay.StyleContext.AddProvider(styleProvider, StyleProviderPriority.User);
 			SelectionOverlay.Name = "Overlay";
 
-			SelectionOverlay.ButtonPressEvent += (o, args) => { OnButtonPressed?.Invoke(args); };
-			SelectionOverlay.ButtonReleaseEvent += (o, args) => { OnButtonReleased?.Invoke(args); };
-			
+			// todo: cursor style
+
+			SelectionOverlay.MotionNotifyEvent += (o, args) => OnMouseMoved?.Invoke(args);
+			SelectionOverlay.ButtonPressEvent += (o, args) => OnButtonPressed?.Invoke(args);
+			SelectionOverlay.ButtonReleaseEvent += (o, args) => OnButtonReleased?.Invoke(args);
+			SelectionOverlay.KeyPressEvent += (o, args) => OnKeyPressed?.Invoke(args);
+
 			SelectionOverlay.Drawn += (o, args) =>
 			{
 				if (rect == null) return;

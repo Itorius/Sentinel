@@ -1,10 +1,7 @@
 using System;
-using Cairo;
 using Gdk;
 using Gtk;
 using Key = Gdk.Key;
-using Rectangle = Gdk.Rectangle;
-using Window = Gtk.Window;
 
 namespace Sentinel.ScreenCapture
 {
@@ -13,14 +10,13 @@ namespace Sentinel.ScreenCapture
 		private struct SelectionData
 		{
 			public Rectangle rect;
-			public bool buttonpressed;
-			// public Widget? window;
+			public bool buttonPressed;
 			public bool aborted;
 
-			public SelectionData(Rectangle rect, bool buttonpressed, bool aborted)
+			public SelectionData(Rectangle rect, bool buttonPressed, bool aborted)
 			{
 				this.rect = rect;
-				this.buttonpressed = buttonpressed;
+				this.buttonPressed = buttonPressed;
 				this.aborted = aborted;
 			}
 		}
@@ -29,46 +25,27 @@ namespace Sentinel.ScreenCapture
 
 		private SelectionData data;
 		private Rectangle rect;
-		public event Action<Rectangle> Callback;
+		public event Action<Rectangle>? Callback;
 
 		public AreaSelection()
 		{
-			// Widget window = GetSelectWindow();
 			data = new SelectionData(Rectangle.Zero, false, false);
 
-			// window.KeyPressEvent += KeyPressed;
-			// window.ButtonPressEvent += ButtonPressed;
-			// window.ButtonReleaseEvent += ButtonReleased;
-			// window.MotionNotifyEvent += MouseMoved;
-
-			//
-			// Display display = window.Display;
-			// Cursor cursor = new(display, CursorType.Crosshair);
-			// Seat seat = display.DefaultSeat;
-			//
-			// seat.Grab(window.Window, SeatCapabilities.AllPointing, false, cursor, null, null);
-			//
-			// Application.Run();
-			//
-			// seat.Ungrab();
-			//
-			//
-			// window.Dispose();
-			
 			Overlay.Show();
 
 			Overlay.OnButtonPressed += ButtonPressed;
+			Overlay.OnKeyPressed += KeyPressed;
 			Overlay.OnButtonReleased += ButtonReleased;
 			Overlay.OnMouseMoved += MouseMoved;
 		}
 
-		private void MouseMoved( MotionNotifyEventArgs args)
+		private void MouseMoved(MotionNotifyEventArgs args)
 		{
 			args.RetVal = true;
 
 			Rectangle draw_rect = new Rectangle();
 
-			if (!data.buttonpressed) return;
+			if (!data.buttonPressed) return;
 
 			draw_rect.Width = (int)Math.Abs(data.rect.X - args.Event.XRoot);
 			draw_rect.Height = (int)Math.Abs(data.rect.Y - args.Event.YRoot);
@@ -77,46 +54,11 @@ namespace Sentinel.ScreenCapture
 
 			rect = draw_rect;
 			Overlay.SetRectangle(rect);
-			// data.window.QueueDraw();
-
-			if (draw_rect.Width <= 0 || draw_rect.Height <= 0)
-				return;
-
-			/* We (ab)use app-paintable to indicate if we have an RGBA window */
-			// if (!data.window.AppPaintable)
-			// {
-			// 	/* Shape the window to make only the outline visible */
-			// 	if (draw_rect.Width > 2 && draw_rect.Height > 2)
-			// 	{
-			// 		RectangleInt region_rect = new RectangleInt
-			// 		{
-			// 			X = 0,
-			// 			Y = 0,
-			// 			Width = draw_rect.Width,
-			// 			Height = draw_rect.Height
-			// 		};
-			//
-			// 		Cairo.Region region = new(region_rect);
-			// 		region_rect.X++;
-			// 		region_rect.Y++;
-			// 		region_rect.Width -= 2;
-			// 		region_rect.Height -= 2;
-			//
-			// 		region.SubtractRectangle(region_rect);
-			//
-			// 		data.window.Window.ShapeCombineRegion(region, 0, 0);
-			// 		region.Dispose();
-			// 	}
-			// 	else
-			// 		data.window.Window.ShapeCombineRegion(null, 0, 0);
-			// }
 		}
 
-		private void ButtonReleased( ButtonReleaseEventArgs args)
+		private void ButtonReleased(ButtonReleaseEventArgs args)
 		{
-			args.RetVal = true;
-
-			if (!data.buttonpressed) return;
+			if (!data.buttonPressed) return;
 
 			data.rect.Width = (int)Math.Abs(data.rect.X - args.Event.XRoot);
 			data.rect.Height = (int)Math.Abs(data.rect.Y - args.Event.YRoot);
@@ -126,83 +68,33 @@ namespace Sentinel.ScreenCapture
 			if (data.rect.Width == 0 || data.rect.Height == 0) data.aborted = true;
 
 			Overlay.Hide();
-			
-			if (!data.aborted)
-			{
-				Callback?.Invoke(data.rect);
-			}
+
+			if (!data.aborted) Callback?.Invoke(data.rect);
 		}
 
 		private void ButtonPressed(ButtonPressEventArgs args)
 		{
-			args.RetVal = true;
+			if (data.buttonPressed) return;
 
-			if (data.buttonpressed) return;
-
-			data.buttonpressed = true;
+			data.buttonPressed = true;
 			data.rect.X = (int)args.Event.XRoot;
 			data.rect.Y = (int)args.Event.YRoot;
 		}
 
-		// private void KeyPressed(object o, KeyPressEventArgs args)
-		// {
-		// 	if (args.Event.Key == Key.Escape)
-		// 	{
-		// 		data.rect.X = 0;
-		// 		data.rect.Y = 0;
-		// 		data.rect.Width = 0;
-		// 		data.rect.Height = 0;
-		// 		data.aborted = true;
-		// 		args.RetVal = true;
-		//
-		// 		Application.Quit();
-		// 	}
-		// }
+		private void KeyPressed(KeyPressEventArgs args)
+		{
+			if (args.Event.Key == Key.Escape)
+			{
+				data.rect.X = 0;
+				data.rect.Y = 0;
+				data.rect.Width = 0;
+				data.rect.Height = 0;
+				data.aborted = true;
 
-		// private Widget GetSelectWindow()
-		// {
-		// 	Screen screen = Screen.Default;
-		// 	Visual visual = screen.RgbaVisual;
-		// 	Window window = new(Gtk.WindowType.Popup);
-		//
-		// 	if (screen.IsComposited && visual != null)
-		// 	{
-		// 		window.Visual = visual;
-		// 		window.AppPaintable = true;
-		// 	}
-		//
-		// 	window.Drawn += DrawSelection;
-		// 	window.Move(0, 0);
-		// 	window.Resize(screen.Width, screen.Height);
-		//
-		// 	rect = Rectangle.Zero;
-		//
-		// 	window.Show();
-		// 	return window;
-		// }
+				Overlay.Hide();
 
-		// private void DrawSelection(object sender, DrawnArgs args)
-		// {
-		// 	args.RetVal = false;
-		//
-		// 	Widget widget = (Widget)sender;
-		// 	var style = widget.StyleContext;
-		// 	var ctx = args.Cr;
-		//
-		// 	if (widget.AppPaintable)
-		// 	{
-		// 		ctx.Operator = Operator.Source;
-		// 		ctx.SetSourceRGBA(0, 0, 0, 0);
-		// 		ctx.Paint();
-		//
-		// 		style.Save();
-		// 		style.AddClass(CSSStyle);
-		//
-		// 		style.RenderBackground(ctx, rect.X, rect.Y, rect.Width, rect.Height);
-		// 		style.RenderFrame(ctx, rect.X, rect.Y, rect.Width, rect.Height);
-		//
-		// 		style.Restore();
-		// 	}
-		// }
+				if (!data.aborted) Callback?.Invoke(data.rect);
+			}
+		}
 	}
 }

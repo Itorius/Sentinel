@@ -1,7 +1,5 @@
 ﻿using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Gdk;
 using Gtk;
@@ -13,8 +11,8 @@ namespace Sentinel
 {
 	internal class Program
 	{
-		private static X11Hotkey HotkeyPrintscreen = null!;
-		private static X11Hotkey aaaa = null!;
+		private static List<X11Hotkey> Hotkeys = null!;
+
 		private static Window MainWindow = null!;
 
 		private static void Main(string[] args)
@@ -22,63 +20,9 @@ namespace Sentinel
 			Application.Init();
 
 			Overlay.Initialize();
+			Configuration.Initialize();
 
-			HotkeyPrintscreen = new X11Hotkey(Key.W);
-			HotkeyPrintscreen.Pressed += (_, _) =>
-			{
-				// AreaSelection selection = new();
-				WindowSelection selection = new();
-				selection.Callback += (window, rectangle) =>
-				{
-					window = window.Toplevel;
-					var pixbuf = new Pixbuf(window, 0, 0, window.Width, window.Height);
-
-					var envHome = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "HOMEPATH" : "HOME";
-					var home = Environment.GetEnvironmentVariable(envHome);
-
-					if (!Directory.Exists($"{home}/Sentinel/Screenshots")) Directory.CreateDirectory($"{home}/Sentinel/Screenshots");
-
-					pixbuf.Save($"{home}/Sentinel/Screenshots/{DateTime.Now:dd-mm-yyyy}.png", "png");
-
-					Atom atom = Atom.Intern("CLIPBOARD", false);
-					Clipboard clipboard = Clipboard.Get(atom);
-					clipboard.Image = pixbuf;
-					clipboard.Store();
-				};
-			};
-			HotkeyPrintscreen.Register();
-
-			aaaa = new X11Hotkey(Key.A);
-			aaaa.Pressed += (_, _) =>
-			{
-				AreaSelection selection = new();
-				selection.Callback += rectangle =>
-				{
-					Task.Run(() =>
-					{
-						Thread.Sleep(200);
-
-						Application.Invoke((a,b) =>
-						{
-							var window = Display.Default.DefaultScreen.RootWindow;
-							var pixbuf = new Pixbuf(window, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
-
-							var envHome = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "HOMEPATH" : "HOME";
-							var home = Environment.GetEnvironmentVariable(envHome);
-
-							if (!Directory.Exists($"{home}/Sentinel/Screenshots")) Directory.CreateDirectory($"{home}/Sentinel/Screenshots");
-
-							pixbuf.Save($"{home}/Sentinel/Screenshots/{DateTime.Now:dd-mm-yyyy}.png", "png");
-
-							Atom atom = Atom.Intern("CLIPBOARD", false);
-							Clipboard clipboard = Clipboard.Get(atom);
-							clipboard.Image = pixbuf;
-							clipboard.Store();
-						});
-					});
-				};
-			};
-			aaaa.Register();
+			SetupHotkeys();
 
 			CssProvider styleProvider = new();
 			styleProvider.LoadFromPath("main.css");
@@ -89,8 +33,7 @@ namespace Sentinel
 
 			MainWindow.DeleteEvent += (_, _) =>
 			{
-				HotkeyPrintscreen.Unregister();
-				aaaa.Unregister();
+				foreach (var hotkey in Hotkeys) hotkey.Unregister();
 				Application.Quit();
 			};
 
@@ -178,6 +121,54 @@ namespace Sentinel
 			MainWindow.ShowAll();
 
 			Application.Run();
+		}
+
+		private static void SetupHotkeys()
+		{
+			Hotkeys = new List<X11Hotkey>();
+
+			var hotkey = new X11Hotkey(Key.W);
+			hotkey.Pressed += (_, _) =>
+			{
+				WindowSelection selection = new();
+				selection.Callback += (window, rectangle) =>
+				{
+					window = window.Toplevel;
+					var pixbuf = new Pixbuf(window, 0, 0, window.Width, window.Height);
+
+					pixbuf.Save($"{Configuration.SavePath}{DateTime.Now.ToString(Configuration.TimeFormat)}.png", "png");
+
+					Atom atom = Atom.Intern("CLIPBOARD", false);
+					Clipboard clipboard = Clipboard.Get(atom);
+					clipboard.Image = pixbuf;
+					clipboard.Store();
+				};
+			};
+			hotkey.Register();
+			Hotkeys.Add(hotkey);
+
+			hotkey = new X11Hotkey(Key.A);
+			hotkey.Pressed += (_, _) =>
+			{
+				AreaSelection selection = new();
+				selection.Callback += rectangle =>
+				{
+					Task.Delay(200).ContinueWith(_ =>
+					{
+						var window = Display.Default.DefaultScreen.RootWindow;
+						var pixbuf = new Pixbuf(window, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+
+						pixbuf.Save($"{Configuration.SavePath}{DateTime.Now.ToString(Configuration.TimeFormat)}.png", "png");
+
+						Atom atom = Atom.Intern("CLIPBOARD", false);
+						Clipboard clipboard = Clipboard.Get(atom);
+						clipboard.Image = pixbuf;
+						clipboard.Store();
+					}, TaskScheduler.FromCurrentSynchronizationContext());
+				};
+			};
+			hotkey.Register();
+			Hotkeys.Add(hotkey);
 		}
 	}
 }

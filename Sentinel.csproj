@@ -9,6 +9,8 @@
 
 	<ItemGroup>
 	  <PackageReference Include="GtkSharp" Version="3.24.24.4" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration" Version="5.0.0" />
+	  <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="5.0.0" />
 	  <PackageReference Include="SixLabors.ImageSharp" Version="1.0.3" />
 	</ItemGroup>
 
@@ -23,6 +25,10 @@
 	  </Content>
 	  <None Remove="main.css" />
 	  <Content Include="main.css">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
+	  <None Remove="config.json" />
+	  <Content Include="config.json">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Content>
 	</ItemGroup>

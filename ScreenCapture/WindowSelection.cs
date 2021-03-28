@@ -11,13 +11,13 @@ namespace Sentinel.ScreenCapture
 	{
 		private IntPtr X11Display;
 
-		public event Action<Window, Rectangle> Callback;
+		public event Action<Window, Rectangle>? Callback;
 		private Window? _window;
 		private Rectangle? selectedRect;
 
 		public WindowSelection()
 		{
-			X11Display = X11Wrapper.XOpenDisplay(IntPtr.Zero);
+			X11Display = Xlib.XOpenDisplay(null);
 			Overlay.Show();
 
 			void OnOverlayOnOnButtonPressed(ButtonPressEventArgs args)
@@ -28,16 +28,12 @@ namespace Sentinel.ScreenCapture
 			}
 
 			Overlay.OnButtonPressed += OnOverlayOnOnButtonPressed;
-			Overlay.OnMouseMoved += args => GetWindowAtCursor();
+			Overlay.OnMouseMoved += GetWindowAtCursor;
 		}
 
-		public void GetWindows(IntPtr display)
+		public void GetWindows(IntPtr display, double pX, double pY)
 		{
 			selectedRect = null;
-
-			var pointer = Display.Default.DefaultSeat.Pointer;
-
-			pointer.GetPosition(null, out int pX, out int pY);
 
 			Xlib.XQueryTree(display, Xlib.XDefaultRootWindow(X11Display), out _, out _, out var children);
 
@@ -54,7 +50,7 @@ namespace Sentinel.ScreenCapture
 
 				System.Drawing.Rectangle rectangle = new System.Drawing.Rectangle(attributes.x, attributes.y, (int)attributes.width, (int)attributes.height);
 
-				if (ww != 0 && rectangle.Contains(pX, pY))
+				if (ww != 0 && rectangle.Contains((int)pX, (int)pY))
 				{
 					Xlib.XGetWindowAttributes(display, ww, out XWindowAttributes cAttr);
 
@@ -79,16 +75,14 @@ namespace Sentinel.ScreenCapture
 			}
 		}
 
-		public Window GetWindowAtCursor()
+		public void GetWindowAtCursor(MotionNotifyEventArgs args)
 		{
 			Application.Invoke(delegate
 			{
-				GetWindows(X11Display);
+				GetWindows(X11Display, args.Event.X, args.Event.Y);
 
 				if (selectedRect != null) Overlay.SetRectangle(selectedRect.Value);
 			});
-
-			return null;
 		}
 	}
 }
