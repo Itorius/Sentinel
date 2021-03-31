@@ -13,7 +13,6 @@ namespace Sentinel
 		internal static void Initialize()
 		{
 			var configuration = new ConfigurationBuilder().AddJsonFile("config.json").Build();
-			Console.WriteLine(configuration["SavePath"]);
 
 			var envHome = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "HOMEPATH" : "HOME";
 			var home = Environment.GetEnvironmentVariable(envHome);

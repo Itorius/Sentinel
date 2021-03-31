@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Gdk;
 using Gtk;
@@ -11,8 +10,6 @@ namespace Sentinel
 {
 	internal class Program
 	{
-		private static List<X11Hotkey> Hotkeys = null!;
-
 		private static Window MainWindow = null!;
 
 		private static void Main(string[] args)
@@ -33,7 +30,7 @@ namespace Sentinel
 
 			MainWindow.DeleteEvent += (_, _) =>
 			{
-				foreach (var hotkey in Hotkeys) hotkey.Unregister();
+				HotkeyManager.Cleanup();
 				Application.Quit();
 			};
 
@@ -125,38 +122,17 @@ namespace Sentinel
 
 		private static void SetupHotkeys()
 		{
-			Hotkeys = new List<X11Hotkey>();
+			HotkeyManager.Initialize();
 
-			var hotkey = new X11Hotkey(Key.W);
-			hotkey.Pressed += (_, _) =>
+			HotkeyManager.RegisterHotkey(Key.W, () =>
 			{
-				WindowSelection selection = new();
-				selection.Callback += (window, rectangle) =>
+				Application.Invoke(delegate
 				{
-					window = window.Toplevel;
-					var pixbuf = new Pixbuf(window, 0, 0, window.Width, window.Height);
-
-					pixbuf.Save($"{Configuration.SavePath}{DateTime.Now.ToString(Configuration.TimeFormat)}.png", "png");
-
-					Atom atom = Atom.Intern("CLIPBOARD", false);
-					Clipboard clipboard = Clipboard.Get(atom);
-					clipboard.Image = pixbuf;
-					clipboard.Store();
-				};
-			};
-			hotkey.Register();
-			Hotkeys.Add(hotkey);
-
-			hotkey = new X11Hotkey(Key.A);
-			hotkey.Pressed += (_, _) =>
-			{
-				AreaSelection selection = new();
-				selection.Callback += rectangle =>
-				{
-					Task.Delay(200).ContinueWith(_ =>
+					WindowSelection selection = new();
+					selection.Callback += (window, rectangle) =>
 					{
-						var window = Display.Default.DefaultScreen.RootWindow;
-						var pixbuf = new Pixbuf(window, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+						window = window.Toplevel;
+						var pixbuf = new Pixbuf(window, 0, 0, window.Width, window.Height);
 
 						pixbuf.Save($"{Configuration.SavePath}{DateTime.Now.ToString(Configuration.TimeFormat)}.png", "png");
 
@@ -164,11 +140,32 @@ namespace Sentinel
 						Clipboard clipboard = Clipboard.Get(atom);
 						clipboard.Image = pixbuf;
 						clipboard.Store();
-					}, TaskScheduler.FromCurrentSynchronizationContext());
-				};
-			};
-			hotkey.Register();
-			Hotkeys.Add(hotkey);
+					};
+				});
+			});
+
+			HotkeyManager.RegisterHotkey(Key.A, () =>
+			{
+				Application.Invoke(delegate
+				{
+					AreaSelection selection = new();
+					selection.Callback += rectangle =>
+					{
+						Task.Delay(200).ContinueWith(_ =>
+						{
+							var window = Display.Default.DefaultScreen.RootWindow;
+							var pixbuf = new Pixbuf(window, rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height);
+
+							pixbuf.Save($"{Configuration.SavePath}{DateTime.Now.ToString(Configuration.TimeFormat)}.png", "png");
+
+							Atom atom = Atom.Intern("CLIPBOARD", false);
+							Clipboard clipboard = Clipboard.Get(atom);
+							clipboard.Image = pixbuf;
+							clipboard.Store();
+						}, TaskScheduler.FromCurrentSynchronizationContext());
+					};
+				});
+			});
 		}
 	}
 }

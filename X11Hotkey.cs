@@ -1,129 +1,132 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using Gdk;
+using System.Threading.Tasks;
 using X11;
-using Event = Gdk.Event;
-using Screen = Gdk.Screen;
-using Window = Gdk.Window;
 
 namespace Sentinel
 {
-	public class X11Hotkey
+	public static class HotkeyManager
 	{
-		private const int KeyPress = 2;
-		private const int KeyRelease = 3;
-		private Key key;
-		private ModifierType modifiers;
-		private KeyCode keycode;
-		private IntPtr XDisplay;
+		private static IntPtr Display;
+		private static Window Root;
+		private static Dictionary<uint, Action> hotkeys;
 
-		public X11Hotkey(Key key, ModifierType modifiers = ModifierType.None)
+		public static void RegisterHotkey(Gdk.Key key, Action onPressed)
 		{
-			this.key = key;
-			this.modifiers = modifiers;
-
-			Window rootWin = Global.DefaultRootWindow;
-			XDisplay = GetXDisplay(rootWin);
-			keycode = Xlib.XKeysymToKeycode(XDisplay, (KeySym)this.key);
-			rootWin.AddFilter(FilterFunction);
+			var keycode = Xlib.XKeysymToKeycode(Display, (KeySym)key);
+			hotkeys.Add((uint)keycode, onPressed);
 		}
 
-		public event EventHandler Pressed;
-
-		private static readonly HashSet<ModifierType> mod_masks = new()
+		public static unsafe void Initialize()
 		{
-			0,
-			ModifierType.Mod2Mask,
-			ModifierType.LockMask,
-			ModifierType.Mod5Mask,
-			ModifierType.Mod2Mask | ModifierType.LockMask,
-			ModifierType.Mod2Mask | ModifierType.Mod5Mask,
-			ModifierType.LockMask | ModifierType.Mod5Mask,
-			ModifierType.Mod2Mask | ModifierType.LockMask | ModifierType.Mod5Mask
-		};
+			Display = Xlib.XOpenDisplay(null);
+			Root = Xlib.XDefaultRootWindow(Display);
+			hotkeys = new Dictionary<uint, Action>();
 
-		public void Register()
-		{
-			Window rootWin = Global.DefaultRootWindow;
+			Xlib.XGrabKeyboard(Display, Root, false, GrabMode.Async, GrabMode.Async, 0);
 
-			foreach (ModifierType mask in mod_masks)
+			Task.Run(() =>
 			{
-				Xlib.XGrabKey(XDisplay, keycode, (KeyButtonMask)(modifiers | mask), (X11.Window)GetXWindow(rootWin), false, GrabMode.Async, GrabMode.Async);
-			}
-		}
+				Xlib.XSelectInput(Display, Root, EventMask.KeyPressMask | EventMask.KeyReleaseMask);
+				var e = new XAnyEvent();
 
-		public void Unregister()
-		{
-			Window rootWin = Global.DefaultRootWindow;
-
-			foreach (ModifierType mask in mod_masks)
-			{
-				Xlib.XUngrabKey(XDisplay, keycode, (KeyButtonMask)(modifiers | mask), (X11.Window)GetXWindow(rootWin));
-			}
-		}
-
-		private unsafe FilterReturn FilterFunction(IntPtr xEvent, Event evnt)
-		{
-			XKeyEvent xKeyEvent = Marshal.PtrToStructure<XKeyEvent>(xEvent);
-			Window rootWin = Global.DefaultRootWindow;
-
-			if (xKeyEvent.send_event) return FilterReturn.Continue;
-			if (xKeyEvent.keycode != (ulong)keycode) return FilterReturn.Continue;
-
-			if (xKeyEvent.type == KeyPress)
-			{
-				var p = stackalloc byte[32];
-
-				Xlib.XQueryKeymap(XDisplay, p);
-
-				int spaceKey = (int)Xlib.XKeysymToKeycode(XDisplay, (KeySym)0xFF61);
-
-				if ((p[spaceKey / 8] & (0x1 << (spaceKey % 8))) != 0)
+				while (true)
 				{
-					Pressed?.Invoke(this, EventArgs.Empty);
-					return FilterReturn.Continue;
+					while (Xlib.XPending(Display) != 0)
+					{
+						Xlib.XNextEvent(Display, &e);
+						XKeyEvent xKeyEvent = *(XKeyEvent*)&e;
+
+						if (e.send_event) continue;
+
+						switch ((Event)e.type)
+						{
+							case Event.KeyPress:
+							{
+								if (IsPrintscreenPressed())
+								{
+									foreach (var (key, action) in hotkeys)
+									{
+										if (key == xKeyEvent.keycode)
+										{
+											action.Invoke();
+
+											break;
+										}
+									}
+								}
+
+								Xlib.XGetInputFocus(Display, out var focus, out _);
+
+								XKeyEvent keyEvent = new XKeyEvent
+								{
+									display = Display,
+									window = focus,
+									root = Root,
+									subwindow = 0,
+									time = 0,
+									x = xKeyEvent.x,
+									y = xKeyEvent.y,
+									x_root = xKeyEvent.x_root,
+									y_root = xKeyEvent.y_root,
+									same_screen = xKeyEvent.same_screen,
+									send_event = xKeyEvent.send_event,
+									type = xKeyEvent.type,
+									keycode = xKeyEvent.keycode,
+									state = xKeyEvent.state
+								};
+
+								Xlib.XSendEvent(Display, focus, true, EventMask.KeyPressMask, ref keyEvent);
+
+								break;
+							}
+							case Event.KeyRelease:
+							{
+								Xlib.XGetInputFocus(Display, out var focus, out _);
+
+								XKeyEvent keyEvent = new XKeyEvent
+								{
+									display = Display,
+									window = focus,
+									root = Root,
+									subwindow = 0,
+									time = 0,
+									x = xKeyEvent.x,
+									y = xKeyEvent.y,
+									x_root = xKeyEvent.x_root,
+									y_root = xKeyEvent.y_root,
+									same_screen = xKeyEvent.same_screen,
+									send_event = xKeyEvent.send_event,
+									type = xKeyEvent.type,
+									keycode = xKeyEvent.keycode,
+									state = xKeyEvent.state
+								};
+
+								Xlib.XSendEvent(Display, focus, true, EventMask.KeyReleaseMask, ref keyEvent);
+
+								break;
+							}
+						}
+					}
 				}
-			}
-
-			Xlib.XGetInputFocus(XDisplay, out var focus, out _);
-
-			XKeyEvent k = new XKeyEvent
-			{
-				display = XDisplay,
-				window = focus,
-				root = (X11.Window)rootWin.Handle,
-				subwindow = 0,
-				time = 0,
-				x = 1,
-				y = 1,
-				x_root = 1,
-				y_root = 1,
-				same_screen = true,
-				type = xKeyEvent.type == KeyPress ? KeyPress : KeyRelease,
-				keycode = (uint)keycode,
-				state = (uint)modifiers
-			};
-
-			Xlib.XSendEvent(XDisplay, focus, true, k.type, (IntPtr)(&k));
-
-			return FilterReturn.Continue;
+			});
 		}
 
-		internal static IntPtr GetXWindow(Window window)
+		private static unsafe bool IsPrintscreenPressed()
 		{
-			return gdk_x11_window_get_xid(window.Handle);
+			var keymap = stackalloc byte[32];
+
+			Xlib.XQueryKeymap(Display, keymap);
+
+			int printscreen = (int)Xlib.XKeysymToKeycode(Display, (KeySym)0xFF61);
+
+			return (keymap[printscreen / 8] & (0x1 << (printscreen % 8))) != 0;
 		}
 
-		internal static IntPtr GetXDisplay(Window window)
+		public static void Cleanup()
 		{
-			return gdk_x11_display_get_xdisplay(Screen.Default.Display.Handle);
+			hotkeys.Clear();
+			Xlib.XUngrabKeyboard(Display, 0);
 		}
-
-		[DllImport("libgdk-3.so.0")]
-		private static extern IntPtr gdk_x11_window_get_xid(IntPtr gdkWindow);
-
-		[DllImport("libgdk-3.so.0")]
-		private static extern IntPtr gdk_x11_display_get_xdisplay(IntPtr gdkDrawable);
 	}
 }
