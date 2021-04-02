@@ -4,6 +4,7 @@ using Gdk;
 using Gtk;
 using Sentinel.ScreenCapture;
 using Key = Gdk.Key;
+using Selection = Sentinel.ScreenCapture.Selection;
 using Window = Gtk.Window;
 
 namespace Sentinel
@@ -120,6 +121,8 @@ namespace Sentinel
 			Application.Run();
 		}
 
+		private static Selection? selection;
+
 		private static void SetupHotkeys()
 		{
 			HotkeyManager.Initialize();
@@ -128,8 +131,12 @@ namespace Sentinel
 			{
 				Application.Invoke(delegate
 				{
-					WindowSelection selection = new();
-					selection.Callback += (window, rectangle) =>
+					if (selection != null) return;
+
+					Display.Default.DefaultScreen.RootWindow.Cursor = new Cursor(CursorType.Hand1);
+
+					selection = new WindowSelection();
+					selection.Callback += (window, _) =>
 					{
 						window = window.Toplevel;
 						var pixbuf = new Pixbuf(window, 0, 0, window.Width, window.Height);
@@ -140,6 +147,10 @@ namespace Sentinel
 						Clipboard clipboard = Clipboard.Get(atom);
 						clipboard.Image = pixbuf;
 						clipboard.Store();
+
+						Display.Default.DefaultScreen.RootWindow.Cursor = new Cursor(Display.Default, "default");
+
+						selection = null;
 					};
 				});
 			});
@@ -148,8 +159,12 @@ namespace Sentinel
 			{
 				Application.Invoke(delegate
 				{
-					AreaSelection selection = new();
-					selection.Callback += rectangle =>
+					if (selection != null) return;
+
+					Display.Default.DefaultScreen.RootWindow.Cursor = new Cursor(CursorType.Cross);
+					
+					selection = new AreaSelection();
+					selection.Callback += (_, rectangle) =>
 					{
 						Task.Delay(200).ContinueWith(_ =>
 						{
@@ -162,6 +177,10 @@ namespace Sentinel
 							Clipboard clipboard = Clipboard.Get(atom);
 							clipboard.Image = pixbuf;
 							clipboard.Store();
+
+							Display.Default.DefaultScreen.RootWindow.Cursor = new Cursor(Display.Default, "default");
+
+							selection = null;
 						}, TaskScheduler.FromCurrentSynchronizationContext());
 					};
 				});

@@ -3,21 +3,26 @@ using System.Linq;
 using Gdk;
 using Gtk;
 using X11;
+using Screen = Gdk.Screen;
 using Window = Gdk.Window;
 
 namespace Sentinel.ScreenCapture
 {
-	public class WindowSelection
+	public abstract class Selection
 	{
-		private IntPtr X11Display;
+		public Action<Window, Rectangle>? Callback;
+	}
 
-		public event Action<Window, Rectangle>? Callback;
+	public class WindowSelection : Selection
+	{
+		private IntPtr Display;
+
 		private Window? _window;
 		private Rectangle? selectedRect;
 
 		public WindowSelection()
 		{
-			X11Display = Xlib.XOpenDisplay(null);
+			Display = Xlib.XOpenDisplay(null);
 			Overlay.Show();
 
 			void OnOverlayOnOnButtonPressed(ButtonPressEventArgs args)
@@ -28,14 +33,17 @@ namespace Sentinel.ScreenCapture
 			}
 
 			Overlay.OnButtonPressed += OnOverlayOnOnButtonPressed;
-			Overlay.OnMouseMoved += GetWindowAtCursor;
+			Overlay.OnMouseMoved += args => GetWindowAtCursor((int)args.Event.X, (int)args.Event.Y);
+
+			Gdk.Display.Default.DefaultSeat.Pointer.GetPosition(null, out int x, out int y);
+			GetWindowAtCursor(x, y);
 		}
 
-		public void GetWindows(IntPtr display, double pX, double pY)
+		public void GetWindows(IntPtr display, int pX, int pY)
 		{
 			selectedRect = null;
 
-			Xlib.XQueryTree(display, Xlib.XDefaultRootWindow(X11Display), out _, out _, out var children);
+			Xlib.XQueryTree(display, Xlib.XDefaultRootWindow(Display), out _, out _, out var children);
 
 			foreach (X11.Window window in Enumerable.Reverse(children))
 			{
@@ -50,7 +58,7 @@ namespace Sentinel.ScreenCapture
 
 				System.Drawing.Rectangle rectangle = new System.Drawing.Rectangle(attributes.x, attributes.y, (int)attributes.width, (int)attributes.height);
 
-				if (ww != 0 && rectangle.Contains((int)pX, (int)pY))
+				if (ww != 0 && rectangle.Contains(pX, pY))
 				{
 					Xlib.XGetWindowAttributes(display, ww, out XWindowAttributes cAttr);
 
@@ -66,7 +74,7 @@ namespace Sentinel.ScreenCapture
 						y = cAttr.y + attributes.y;
 					}
 
-					_window = new Window(X11Wrapper.gdk_x11_window_foreign_new_for_display(Display.Default.Handle, ww));
+					_window = new Window(X11Wrapper.gdk_x11_window_foreign_new_for_display(Gdk.Display.Default.Handle, ww));
 
 					selectedRect = new Rectangle(x, y, (int)cAttr.width, (int)cAttr.height);
 
@@ -75,11 +83,11 @@ namespace Sentinel.ScreenCapture
 			}
 		}
 
-		public void GetWindowAtCursor(MotionNotifyEventArgs args)
+		public void GetWindowAtCursor(int x, int y)
 		{
 			Application.Invoke(delegate
 			{
-				GetWindows(X11Display, args.Event.X, args.Event.Y);
+				GetWindows(Display, x, y);
 
 				if (selectedRect != null) Overlay.SetRectangle(selectedRect.Value);
 			});

@@ -5,7 +5,7 @@ using Key = Gdk.Key;
 
 namespace Sentinel.ScreenCapture
 {
-	public class AreaSelection
+	public class AreaSelection : Selection
 	{
 		private struct SelectionData
 		{
@@ -21,11 +21,8 @@ namespace Sentinel.ScreenCapture
 			}
 		}
 
-		private const string CSSStyle = "rubberband";
-
 		private SelectionData data;
 		private Rectangle rect;
-		public event Action<Rectangle>? Callback;
 
 		public AreaSelection()
 		{
@@ -69,7 +66,7 @@ namespace Sentinel.ScreenCapture
 
 			Overlay.Hide();
 
-			if (!data.aborted) Callback?.Invoke(data.rect);
+			if (!data.aborted) Callback?.Invoke(null, data.rect);
 		}
 
 		private void ButtonPressed(ButtonPressEventArgs args)
@@ -92,8 +89,6 @@ namespace Sentinel.ScreenCapture
 				data.aborted = true;
 
 				Overlay.Hide();
-
-				if (!data.aborted) Callback?.Invoke(data.rect);
 			}
 		}
 	}
